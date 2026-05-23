@@ -1,0 +1,3 @@
+title,description,status,priority,type,assigneeId
+Import bug fix,This was imported,TODO,HIGH,BUG,5
+Import feature,Another import,IN_PROGRESS,MEDIUM,FEATURE,5
