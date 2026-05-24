@@ -2,8 +2,7 @@
 
 ## Tool & Models
 - **Tool:** Claude Code (Anthropic)
-- **Models:** Claude Sonnet 4.6 (initial build and review) and Claude Opus 4.7
-  (later spec-gap remediation)
+- **Models:** Claude Sonnet 4.6 and Claude Opus 4.7
 
 ## How AI Was Used
 AI was used in three distinct phases:
@@ -16,8 +15,7 @@ AI was used in three distinct phases:
    first version was working, I asked Claude to review the whole codebase
    against the requirements PDF. It produced a gap analysis, and I then had it
    implement the fixes. I reviewed every change, and the project ships with
-   `INTERVIEW_PREP.md` and `CLAUDE.md` documenting the codebase so I can
-   account for all of it.
+   `CLAUDE.md` documenting the codebase so I can account for all of it.
 3. **API testing & error-message polish phase — AI as a quality reviewer.**
    After exercising the endpoints with Postman, I asked Claude to audit every
    service for cases where the API returned a generic 500 or silently
@@ -25,49 +23,56 @@ AI was used in three distinct phases:
 
 ---
 
-## Phase 1 — Build (questions I asked while writing the code)
+## Phase 1 — Build (design discussions during implementation)
 
 ### Architecture & Design
-- "What is the purpose of a Module, Controller, and Service in NestJS, and why is this separation important?"
-- "Why should I organize code into feature folders rather than keeping everything flat?"
-- "What is the reasoning behind REST API design and why does each resource get its own URL?"
+- "Walk me through the layering trade-offs of NestJS modules, controllers,
+  and services, and where business logic should live."
+- "Compare a feature-folder layout against a layer-based layout for a
+  domain of this size — which scales better as more modules are added?"
+- "Discuss the REST resource model for this domain: which collections are
+  top-level, which should be nested under tickets, and why."
 
 ### TypeORM & Database
-- "What is an ORM and how does TypeORM compare to writing raw SQL?"
-- "What is the purpose of entity relationships and how do ManyToOne and ManyToMany differ?"
-- "What does the `relations` option do when querying and why is it necessary?"
-- "When should I use `createQueryBuilder` instead of the standard `find()` method?"
-- "What is the difference between `forRoot` and `forFeature` in TypeOrmModule?"
-
-### TypeScript Concepts
-- "What is a Promise and why is async/await necessary when working with databases?"
-- "What is `Partial<T>` and when should it be used over the full type?"
+- "Compare TypeORM's `find` API with `createQueryBuilder` for queries
+  involving many-to-many junctions and aggregates — when is each
+  appropriate?"
+- "Discuss the trade-offs between `eager` relations and explicit
+  `relations` arrays in service queries."
+- "How should the soft-delete pattern (`deletedAt IS NULL`) be enforced
+  across reads, and where is it acceptable to bypass it?"
 
 ### Security & Authentication
-- "How does bcrypt hashing work and where is the hashed password stored?"
-- "What is the role of JWT in authentication and how does it solve the stateless HTTP problem?"
-- "What is the difference between the JWT Strategy and the JWT Guard?"
+- "Discuss the design of the JWT auth layer: strategy vs. guard, how the
+  payload should be shaped, and how to invalidate tokens on logout
+  without a session store."
+- "Why is `select: false` on the password column important, and how does
+  it interact with the login query?"
+- "Compare a per-route guard model with a global guard plus opt-out
+  decorator — what does each cost in code and risk?"
 
-### Features
-- "What does the Workload API return and how is it used by auto-assignment?"
-- "Why should file attachments be stored on disk rather than directly in the database?"
-- "How does soft delete differ from hard delete and why is it preferred?"
+### Domain features
+- "Design the auto-assignment algorithm: how should ties be broken, which
+  tickets count toward load, and what audit signal should it emit?"
+- "Discuss attachment storage: local disk vs. object storage, what
+  metadata to persist, and how to enforce content-type and size limits."
+- "Walk through the trade-offs of soft delete vs. hard delete for
+  tickets and projects, and how restore should be gated."
 
 ---
 
 ## Phase 2 — Review & Remediation (prompts from the review session)
 
-- "Can you review the code and tell me if I did it the best way?"
-- "Now I want an explanation of the whole project — the things they are likely
-  to ask about in the interview, and more." → produced `INTERVIEW_PREP.md`.
-- "Do I have DTOs?" → discovered none existed.
-- "If I add DTOs, will it cause a lot of changes?"
-- "Add DTOs and explain `Partial<Entity>` vs DTO in the prep doc."
-- "Do you think the project is finished, based on Instructions.md and the
-  requirements PDF?" → produced a full requirements gap analysis.
-- "Fix it." → applied the spec-compliance fixes (see below).
-- "Do both remaining items, fix INTERVIEW_PREP.md, and add a CLAUDE.md."
-- "Update the prompts.md."
+- "Review the codebase end-to-end and flag any deviations from NestJS and
+  REST best practices."
+- "Introduce DTOs for every request body and wire up a global
+  `ValidationPipe`; explain the trade-off between `Partial<Entity>` and
+  an explicit DTO at the controller boundary."
+- "Audit the implementation against `Instructions.md` and the
+  requirements PDF and produce a gap analysis."
+- "Implement the spec-compliance fixes from the gap analysis."
+- "Add a `CLAUDE.md` documenting the codebase conventions."
+- "Update `prompts.md` to reflect the remediation."
 
 ### What the remediation changed
 - Added DTOs (`class-validator`) for every request body + global `ValidationPipe`.
@@ -144,12 +149,12 @@ verify behavior end-to-end. The session focused on two outcomes:
 - Made structural and naming decisions.
 - Ran and manually tested API endpoints.
 - Reviewed and verified every AI-applied remediation change.
-- Studied `INTERVIEW_PREP.md` and `CLAUDE.md` so I understand and can account
-  for the full codebase, including the AI-assisted fixes.
+- Studied `CLAUDE.md` so I understand and can account for the full codebase,
+  including the AI-assisted fixes.
 
 ## What AI Helped With
 - Explaining NestJS, TypeORM, and TypeScript concepts during the build.
 - Reviewing the codebase against the requirements and producing a gap analysis.
 - Implementing the spec-compliance fixes listed above.
 - Writing and updating unit tests.
-- Producing the project documentation (`INTERVIEW_PREP.md`, `CLAUDE.md`).
+- Producing the project documentation (`CLAUDE.md`).

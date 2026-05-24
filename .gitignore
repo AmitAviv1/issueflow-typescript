@@ -45,6 +45,10 @@ lerna-debug.log*
 # uploaded files
 /uploads
 
+# Postman workspace (auto-created by Postman extension, not needed)
+/.postman
+/postman
+
 # temp directory
 .temp
 .tmp
