@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -39,7 +39,10 @@ export class AuthService {
 
   async setPassword(userId: number, plainPassword: string): Promise<void> {
     const hashed = await bcrypt.hash(plainPassword, 10);
-    await this.usersRepository.update(userId, { password: hashed });
+    const result = await this.usersRepository.update(userId, { password: hashed });
+    if (result.affected === 0) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
   }
 
   getMe(user: any) {

@@ -34,6 +34,7 @@ const mockTicketRepository = {
 
 const mockUserRepository = {
   find: jest.fn().mockResolvedValue([{ id: 1, username: 'jdoe', role: 'DEVELOPER' }]),
+  findOne: jest.fn().mockResolvedValue({ id: 1, username: 'jdoe', role: 'DEVELOPER' }),
 };
 
 const mockAuditLogService = {
@@ -142,6 +143,7 @@ describe('TicketsService', () => {
   });
 
   it('should restore a ticket and log it', async () => {
+    mockTicketRepository.findOne.mockResolvedValueOnce({ ...mockTicket, deletedAt: new Date() });
     await service.restore(1);
     expect(mockTicketRepository.update).toHaveBeenCalledWith(1, { deletedAt: null });
     expect(mockAuditLogService.log).toHaveBeenCalledWith('RESTORE', 'TICKET', 1, 0);

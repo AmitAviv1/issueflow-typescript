@@ -6,7 +6,7 @@
   (later spec-gap remediation)
 
 ## How AI Was Used
-AI was used in two distinct phases:
+AI was used in three distinct phases:
 
 1. **Build phase — AI as a tutor.** For the core implementation I wrote the
    code myself. Claude explained every concept before I implemented it,
@@ -18,6 +18,10 @@ AI was used in two distinct phases:
    implement the fixes. I reviewed every change, and the project ships with
    `INTERVIEW_PREP.md` and `CLAUDE.md` documenting the codebase so I can
    account for all of it.
+3. **API testing & error-message polish phase — AI as a quality reviewer.**
+   After exercising the endpoints with Postman, I asked Claude to audit every
+   service for cases where the API returned a generic 500 or silently
+   succeeded, and to replace them with informative HTTP errors.
 
 ---
 
@@ -82,6 +86,56 @@ AI was used in two distinct phases:
 - Added audit logging for User CRUD.
 - Moved DB + JWT config into a `.env` file via `@nestjs/config`.
 - Wired the authenticated user (`@CurrentUser()`) into audit-log `performedBy`.
+
+---
+
+## Phase 3 — API testing & error-message polish
+
+After the remediation phase I exercised the full API surface via Postman to
+verify behavior end-to-end. The session focused on two outcomes:
+
+1. Confirming that the auth model (global JWT with a `@Public()`
+   registration endpoint, REST-style `PATCH /users/:id` for updates) was
+   correctly understood and documented.
+2. Auditing every service for cases where the API returned a generic 500
+   or silently "succeeded" on invalid input, and replacing them with
+   informative HTTP errors that name the missing entity and the actual
+   problem.
+
+### Representative prompts
+- "Audit every controller and service. Where can the API currently return
+  a 500 or succeed silently? Replace those paths with informative
+  `NotFoundException` / `BadRequestException` / `ConflictException`
+  responses that name the missing entity."
+- "Signup should not 500 on a duplicate email or username — return a
+  `ConflictException` with a clear message."
+- "Signup should accept an optional password and default to `'secret'`
+  when none is provided; in both cases the value must be hashed with
+  bcrypt before persisting."
+- "Generate a Postman-ready endpoint reference for the full API surface,
+  including which routes are public and which require a Bearer token."
+
+### What the error-message audit changed
+- `POST /users` returns `409 Conflict` with a clear message on duplicate
+  username or email instead of a generic 500.
+- `POST /users` accepts an optional `password` (defaults to `"secret"`)
+  and always hashes the value with bcrypt before persisting.
+- `POST /tickets` validates the referenced assignee and project up front,
+  returning `404 Assignee user X not found` or `400 Project X not found`
+  instead of a foreign-key 500.
+- `DELETE /tickets/:id` and `POST /tickets/:id/restore` (and the
+  equivalent project endpoints) now distinguish "not found" (`404`) from
+  "already in that state" (`400`).
+- `POST /tickets/:id/comments` validates the ticket and author and
+  returns `404` with the missing id.
+- `POST /tickets/:id/attachments` validates the ticket; `DELETE` on a
+  missing attachment now returns `404` instead of succeeding silently.
+- `POST /tickets/:id/dependencies` returns `409` on a duplicate
+  dependency; `DELETE` returns `404` when no such dependency exists.
+- `POST /projects` validates that the owner user exists.
+- `POST /auth/set-password` validates that the target user exists.
+- Existing unit-test mocks were updated to match the new behavior; all 24
+  tests pass.
 
 ---
 

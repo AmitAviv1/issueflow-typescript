@@ -1,8 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository, OptimisticLockVersionMismatchError } from 'typeorm';
+import { ILike, IsNull, Repository, OptimisticLockVersionMismatchError } from 'typeorm';
 import { Comment } from './comment.entity';
 import { User } from '../user/user.entity';
+import { Ticket } from '../ticket/ticket.entity';
 import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
@@ -12,6 +13,8 @@ export class CommentsService {
     private commentsRepository: Repository<Comment>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(Ticket)
+    private ticketsRepository: Repository<Ticket>,
     private auditLogService: AuditLogService,
   ) {}
 
@@ -24,6 +27,14 @@ export class CommentsService {
   }
 
   async create(ticketId: number, authorId: number, content: string): Promise<Comment> {
+    const ticket = await this.ticketsRepository.findOne({
+      where: { id: ticketId, deletedAt: IsNull() },
+    });
+    if (!ticket) throw new NotFoundException(`Ticket ${ticketId} not found`);
+
+    const author = await this.usersRepository.findOne({ where: { id: authorId } });
+    if (!author) throw new NotFoundException(`Author user ${authorId} not found`);
+
     const mentionedUsers = await this.resolveMentions(content);
     const comment = this.commentsRepository.create({ ticketId, authorId, content, mentionedUsers });
     const saved = await this.commentsRepository.save(comment);

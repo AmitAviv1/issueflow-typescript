@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not } from 'typeorm';
 import { Project } from './project.entity';
@@ -33,6 +33,10 @@ export class ProjectsService {
   }
 
   async create(dto: CreateProjectDto, performedBy: number = 0): Promise<Project> {
+    const owner = await this.usersRepository.findOne({ where: { id: dto.ownerId } });
+    if (!owner) {
+      throw new NotFoundException(`Owner user ${dto.ownerId} not found`);
+    }
     const newProject = this.projectsRepository.create(dto);
     const saved = await this.projectsRepository.save(newProject);
     await this.auditLogService.log('CREATE', 'PROJECT', saved.id, performedBy);
@@ -46,8 +50,12 @@ export class ProjectsService {
   }
 
   async softDelete(id: number, performedBy: number = 0): Promise<void> {
-    const result = await this.projectsRepository.update(id, { deletedAt: new Date() });
-    if (result.affected === 0) throw new NotFoundException(`Project ${id} not found`);
+    const project = await this.projectsRepository.findOne({ where: { id } });
+    if (!project) throw new NotFoundException(`Project ${id} not found`);
+    if (project.deletedAt) {
+      throw new BadRequestException(`Project ${id} is already deleted`);
+    }
+    await this.projectsRepository.update(id, { deletedAt: new Date() });
     await this.auditLogService.log('DELETE', 'PROJECT', id, performedBy);
   }
 
@@ -56,8 +64,12 @@ export class ProjectsService {
   }
 
   async restore(id: number, performedBy: number = 0): Promise<void> {
-    const result = await this.projectsRepository.update(id, { deletedAt: null });
-    if (result.affected === 0) throw new NotFoundException(`Project ${id} not found`);
+    const project = await this.projectsRepository.findOne({ where: { id } });
+    if (!project) throw new NotFoundException(`Project ${id} not found`);
+    if (!project.deletedAt) {
+      throw new BadRequestException(`Project ${id} is not deleted, nothing to restore`);
+    }
+    await this.projectsRepository.update(id, { deletedAt: null });
     await this.auditLogService.log('RESTORE', 'PROJECT', id, performedBy);
   }
 

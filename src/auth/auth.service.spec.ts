@@ -18,7 +18,7 @@ const mockUser = {
 
 const mockUserRepository = {
   findOne: jest.fn().mockResolvedValue(mockUser),
-  update: jest.fn().mockResolvedValue(undefined),
+  update: jest.fn().mockResolvedValue({ affected: 1 }),
 };
 
 const mockJwtService = {

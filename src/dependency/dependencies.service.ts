@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Dependency } from './dependency.entity';
@@ -31,6 +31,15 @@ export class DependenciesService {
       throw new BadRequestException('Both tickets must belong to the same project');
     }
 
+    const existing = await this.dependenciesRepository.findOne({
+      where: { ticketId, blockedById },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Ticket ${ticketId} is already blocked by ticket ${blockedById}`,
+      );
+    }
+
     const dependency = this.dependenciesRepository.create({ ticketId, blockedById });
     return this.dependenciesRepository.save(dependency);
   }
@@ -43,6 +52,11 @@ export class DependenciesService {
   }
 
   async removeDependency(ticketId: number, blockedById: number): Promise<void> {
-    await this.dependenciesRepository.delete({ ticketId, blockedById });
+    const result = await this.dependenciesRepository.delete({ ticketId, blockedById });
+    if (result.affected === 0) {
+      throw new NotFoundException(
+        `No dependency found where ticket ${ticketId} is blocked by ticket ${blockedById}`,
+      );
+    }
   }
 }

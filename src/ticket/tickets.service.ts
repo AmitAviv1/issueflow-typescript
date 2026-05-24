@@ -43,6 +43,13 @@ export class TicketsService {
   }
 
   async create(dto: CreateTicketDto, performedBy: number = 0): Promise<Ticket> {
+    if (dto.assigneeId) {
+      const assignee = await this.usersRepository.findOne({ where: { id: dto.assigneeId } });
+      if (!assignee) {
+        throw new NotFoundException(`Assignee user ${dto.assigneeId} not found`);
+      }
+    }
+
     const data: Partial<Ticket> = {
       title: dto.title,
       description: dto.description,
@@ -64,7 +71,15 @@ export class TicketsService {
     }
 
     const newTicket = this.ticketsRepository.create(data);
-    const saved = await this.ticketsRepository.save(newTicket);
+    let saved: Ticket;
+    try {
+      saved = await this.ticketsRepository.save(newTicket);
+    } catch (e) {
+      if ((e as any).code === '23503') {
+        throw new BadRequestException(`Project ${dto.projectId} not found`);
+      }
+      throw e;
+    }
     await this.auditLogService.log('CREATE', 'TICKET', saved.id, performedBy);
     if (autoAssigned) {
       await this.auditLogService.log('AUTO_ASSIGN', 'TICKET', saved.id, 0, 'SYSTEM');
@@ -152,8 +167,12 @@ export class TicketsService {
   }
 
   async softDelete(id: number, performedBy: number = 0): Promise<void> {
-    const result = await this.ticketsRepository.update(id, { deletedAt: new Date() });
-    if (result.affected === 0) throw new NotFoundException(`Ticket ${id} not found`);
+    const ticket = await this.ticketsRepository.findOne({ where: { id } });
+    if (!ticket) throw new NotFoundException(`Ticket ${id} not found`);
+    if (ticket.deletedAt) {
+      throw new BadRequestException(`Ticket ${id} is already deleted`);
+    }
+    await this.ticketsRepository.update(id, { deletedAt: new Date() });
     await this.auditLogService.log('DELETE', 'TICKET', id, performedBy);
   }
 
@@ -164,8 +183,12 @@ export class TicketsService {
   }
 
   async restore(id: number, performedBy: number = 0): Promise<void> {
-    const result = await this.ticketsRepository.update(id, { deletedAt: null });
-    if (result.affected === 0) throw new NotFoundException(`Ticket ${id} not found`);
+    const ticket = await this.ticketsRepository.findOne({ where: { id } });
+    if (!ticket) throw new NotFoundException(`Ticket ${id} not found`);
+    if (!ticket.deletedAt) {
+      throw new BadRequestException(`Ticket ${id} is not deleted, nothing to restore`);
+    }
+    await this.ticketsRepository.update(id, { deletedAt: null });
     await this.auditLogService.log('RESTORE', 'TICKET', id, performedBy);
   }
 

@@ -75,6 +75,8 @@ describe('UsersService', () => {
   });
 
   it('should create a user and log it', async () => {
+    // Duplicate checks: no existing email, no existing username
+    mockUserRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     const result = await service.create({
       username: 'jdoe',
       email: 'jdoe@example.com',
